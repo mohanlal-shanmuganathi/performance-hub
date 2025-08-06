@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Management System</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, createContext, useContext } = React;
+
+        // Auth Context
+        const AuthContext = createContext();
+        const useAuth = () => useContext(AuthContext);
+
+        const AuthProvider = ({ children }) => {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(false);
+
+            const login = async (credentials) => {
+                try {
+                    const response = await fetch('http://127.0.0.1:5000/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(credentials)
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        localStorage.setItem('token', data.access_token);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        setUser(data.user);
+                        return { success: true };
+                    }
+                    return { success: false, error: data.message };
+                } catch (error) {
+                    return { success: false, error: error.message };
+                }
+            };
+
+            const logout = () => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                setUser(null);
+            };
+
+            useEffect(() => {
+                const savedUser = localStorage.getItem('user');
+                if (savedUser) setUser(JSON.parse(savedUser));
+            }, []);
+
+            return React.createElement(AuthContext.Provider, { 
+                value: { user, login, logout, isAuthenticated: !!user, loading }
+            }, children);
+        };
+
+        // API Helper
+        const apiCall = async (endpoint, options = {}) => {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`http://127.0.0.1:5000/api${endpoint}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` }),
+                    ...options.headers
+                },
+                ...options
+            });
+            return response.json();
+        };
+
+        // Navigation Component
+        const Navigation = ({ activeTab, setActiveTab }) => {
+            const { user, logout } = useAuth();
+            
+            const tabs = [
+                { id: 'dashboard', name: 'Dashboard', roles: ['admin', 'manager', 'employee'] },
+                { id: 'profile', name: 'My Profile', roles: ['admin', 'manager', 'employee'] },
+                { id: 'employees', name: 'Employees', roles: ['admin', 'manager'] },
+                { id: 'goals', name: 'Goals', roles: ['admin', 'manager', 'employee'] },
+                { id: 'reviews', name: 'Reviews', roles: ['admin', 'manager', 'employee'] },
+                { id: 'skills', name: 'Skills', roles: ['admin', 'manager', 'employee'] },
+                { id: 'analytics', name: 'Analytics', roles: ['admin', 'manager'] }
+            ];
+
+            return (
+                <nav className="bg-white shadow-sm border-b">
+                    <div className="max-w-7xl mx-auto px-4">
+                        <div className="flex justify-between h-16">
+                            <div className="flex items-center space-x-8">
+                                <h1 className="text-xl font-bold text-gray-900">Performance Hub</h1>
+                                <div className="flex space-x-4">
+                                    {tabs.filter(tab => tab.roles.includes(user.role)).map(tab => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => setActiveTab(tab.id)}
+                                            className={`px-3 py-2 text-sm font-medium rounded-md ${
+                                                activeTab === tab.id 
+                                                    ? 'bg-blue-100 text-blue-700' 
+                                                    : 'text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            {tab.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                                <span className="text-gray-700">
+                                    {user.first_name} {user.last_name} ({user.role})
+                                </span>
+                                <button
+                                    onClick={logout}
+                                    className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                                >
+                                    Logout
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+            );
+        };
+
+        // Login Component
+        const Login = () => {
+            const [email, setEmail] = useState('admin@company.com');
+            const [password, setPassword] = useState('admin123');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+            const { login } = useAuth();
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                const result = await login({ email, password });
+                setLoading(false);
+                if (!result.success) setError(result.error);
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                    <div className="max-w-md w-full space-y-8 p-8">
+                        <div>
+                            <h2 className="text-3xl font-bold text-center text-gray-900">
+                                Performance Management System
+                            </h2>
+                        </div>
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Email</label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Password</label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    required
+                                />
+                            </div>
+                            {error && <div className="text-red-600 text-sm">{error}</div>}
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700"
+                            >
+                                {loading ? 'Signing in...' : 'Sign in'}
+                            </button>
+                        </form>
+                        <div className="mt-8 p-4 bg-blue-50 rounded-lg">
+                            <h3 className="text-sm font-medium text-blue-900 mb-3">Demo Credentials:</h3>
+                            <div className="space-y-2 text-xs text-blue-800">
+                                <div><strong>Admin:</strong> admin@company.com / admin123</div>
+                                <div><strong>Manager:</strong> manager@company.com / manager123</div>
+                                <div><strong>Employee:</strong> employee@company.com / employee123</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };

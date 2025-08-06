@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Management System - Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { border: 1px solid #ddd; padding: 20px; margin: 10px 0; border-radius: 5px; }
+        .btn { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn:hover { background: #0056b3; }
+        .success { color: green; }
+        .error { color: red; }
+        .goal { background: #f8f9fa; padding: 10px; margin: 5px 0; border-left: 4px solid #007bff; }
+        input, select { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 3px; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Employee Performance Management System</h1>
+        
+        <div class="card">
+            <h2>Login</h2>
+            <label>Email:</label>
+            <input type="email" id="email" value="admin@company.com">
+            <label>Password:</label>
+            <input type="password" id="password" value="admin123">
+            <br><br>
+            <button class="btn" onclick="login()">Login</button>
+            <div id="loginResult"></div>
+        </div>
+
+        <div class="card">
+            <h2>Goals</h2>
+            <button class="btn" onclick="loadGoals()">Load Goals</button>
+            <div id="goalsResult"></div>
+        </div>
+
+        <div class="card">
+            <h2>Create New Goal</h2>
+            <label>Title:</label>
+            <input type="text" id="goalTitle" placeholder="Goal title">
+            <label>Description:</label>
+            <input type="text" id="goalDescription" placeholder="Goal description">
+            <label>Category:</label>
+            <select id="goalCategory">
+                <option value="">Select category</option>
+                <option value="Professional Development">Professional Development</option>
+                <option value="Leadership">Leadership</option>
+                <option value="Technical Skills">Technical Skills</option>
+                <option value="Performance">Performance</option>
+            </select>
+            <label>Progress (%):</label>
+            <input type="number" id="goalProgress" min="0" max="100" value="0">
+            <br><br>
+            <button class="btn" onclick="createGoal()">Create Goal</button>
+            <div id="createGoalResult"></div>
+        </div>
+
+        <div class="card">
+            <h2>Analytics Dashboard</h2>
+            <button class="btn" onclick="loadDashboard()">Load Dashboard</button>
+            <div id="dashboardResult"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:5000/api';
+        let authToken = null;
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('loginResult');
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.access_token;
+                    resultDiv.innerHTML = `<p class="success">Login successful! Welcome ${data.user.first_name} ${data.user.last_name} (${data.user.role})</p>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">Login failed: ${data.message}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function loadGoals() {
+            const resultDiv = document.getElementById('goalsResult');
+            
+            if (!authToken) {
+                resultDiv.innerHTML = '<p class="error">Please login first</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/goals`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const goals = await response.json();
+                
+                if (response.ok) {
+                    let html = '<h3>Your Goals:</h3>';
+                    goals.forEach(goal => {
+                        html += `
+                            <div class="goal">
+                                <strong>${goal.title}</strong> (${goal.status})<br>
+                                Progress: ${goal.progress}%<br>
+                                ${goal.description ? `Description: ${goal.description}<br>` : ''}
+                                ${goal.category ? `Category: ${goal.category}<br>` : ''}
+                                Approved: ${goal.manager_approved ? 'Yes' : 'No'}
+                            </div>
+                        `;
+                    });
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">Failed to load goals: ${goals.message}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function createGoal() {
+            const resultDiv = document.getElementById('createGoalResult');
+            
+            if (!authToken) {
+                resultDiv.innerHTML = '<p class="error">Please login first</p>';
+                return;
+            }
+
+            const goalData = {
+                title: document.getElementById('goalTitle').value,
+                description: document.getElementById('goalDescription').value,
+                category: document.getElementById('goalCategory').value,
+                progress: parseInt(document.getElementById('goalProgress').value) || 0,
+                status: 'draft'
+            };
+
+            if (!goalData.title) {
+                resultDiv.innerHTML = '<p class="error">Title is required</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/goals`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(goalData)
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<p class="success">Goal created successfully! ID: ${data.id}</p>`;
+                    // Clear form
+                    document.getElementById('goalTitle').value = '';
+                    document.getElementById('goalDescription').value = '';
+                    document.getElementById('goalCategory').value = '';
+                    document.getElementById('goalProgress').value = '0';
+                } else {
+                    resultDiv.innerHTML = `<p class="error">Failed to create goal: ${data.message || JSON.stringify(data.errors)}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function loadDashboard() {
+            const resultDiv = document.getElementById('dashboardResult');
+            
+            if (!authToken) {
+                resultDiv.innerHTML = '<p class="error">Please login first</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/analytics/dashboard`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    let html = '<h3>Dashboard Analytics:</h3>';
+                    html += `<p><strong>Total Employees:</strong> ${data.total_employees}</p>`;
+                    html += `<p><strong>Total Goals:</strong> ${data.total_goals}</p>`;
+                    html += `<p><strong>Goal Completion Rate:</strong> ${data.goal_completion_rate}%</p>`;
+                    html += `<p><strong>Review Completion Rate:</strong> ${data.review_completion_rate}%</p>`;
+                    html += '<h4>Average Ratings:</h4>';
+                    html += `<p>Overall: ${data.average_ratings.overall}/5</p>`;
+                    html += `<p>Technical: ${data.average_ratings.technical}/5</p>`;
+                    html += `<p>Communication: ${data.average_ratings.communication}/5</p>`;
+                    html += `<p>Leadership: ${data.average_ratings.leadership}/5</p>`;
+                    html += `<p>Teamwork: ${data.average_ratings.teamwork}/5</p>`;
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">Failed to load dashboard: ${data.message}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

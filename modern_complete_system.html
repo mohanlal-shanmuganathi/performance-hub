@@ -1,0 +1,211 @@
+        // Simple placeholder components for other sections
+        const Profile = () => (
+            <div className="max-w-4xl mx-auto py-8 px-4">
+                <div className="glass-effect rounded-2xl p-8 card-hover text-center">
+                    <div className="text-6xl mb-4">👤</div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Profile Management</h2>
+                    <p className="text-gray-600">View and manage your profile information</p>
+                    <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                        <p className="text-sm text-blue-800">Profile functionality is available in the complete system</p>
+                    </div>
+                </div>
+            </div>
+        );
+
+        const Employees = () => (
+            <div className="max-w-6xl mx-auto py-8 px-4">
+                <div className="glass-effect rounded-2xl p-8 card-hover text-center">
+                    <div className="text-6xl mb-4">👥</div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Team Management</h2>
+                    <p className="text-gray-600">Manage your team members and their information</p>
+                    <div className="mt-6 p-4 bg-green-50 rounded-lg">
+                        <p className="text-sm text-green-800">Employee management functionality is available in the complete system</p>
+                    </div>
+                </div>
+            </div>
+        );
+
+        const Goals = () => {
+            const [goals, setGoals] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                fetchGoals();
+            }, []);
+
+            const fetchGoals = async () => {
+                try {
+                    const data = await apiCall('/goals');
+                    setGoals(data);
+                } catch (error) {
+                    console.error('Error fetching goals:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (loading) {
+                return (
+                    <div className="flex items-center justify-center h-64">
+                        <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin"></div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-6xl mx-auto py-8 px-4">
+                    <div className="text-center mb-8">
+                        <h2 className="text-4xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent mb-2">
+                            Goals Management 🎯
+                        </h2>
+                        <p className="text-gray-600 text-lg">Track and manage your performance goals</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {goals.map(goal => (
+                            <div key={goal.id} className="glass-effect rounded-2xl p-6 card-hover">
+                                <div className="flex justify-between items-start mb-4">
+                                    <h3 className="text-lg font-semibold text-gray-900">{goal.title}</h3>
+                                    <span className={`px-3 py-1 text-xs rounded-full font-medium ${
+                                        goal.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                        goal.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                                        goal.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                        'bg-gray-100 text-gray-800'
+                                    }`}>
+                                        {goal.status}
+                                    </span>
+                                </div>
+                                
+                                {goal.description && (
+                                    <p className="text-gray-600 text-sm mb-4">{goal.description}</p>
+                                )}
+                                
+                                <div className="space-y-2 mb-4">
+                                    {goal.category && (
+                                        <p className="text-sm text-gray-500">
+                                            <span className="font-medium">Category:</span> {goal.category}
+                                        </p>
+                                    )}
+                                    {goal.target_date && (
+                                        <p className="text-sm text-gray-500">
+                                            <span className="font-medium">Target:</span> {new Date(goal.target_date).toLocaleDateString()}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="mb-4">
+                                    <div className="flex justify-between text-sm text-gray-600 mb-2">
+                                        <span>Progress</span>
+                                        <span>{goal.progress}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-3">
+                                        <div
+                                            className={`h-3 rounded-full transition-all duration-500 ${
+                                                goal.progress >= 80 ? 'bg-gradient-to-r from-green-400 to-green-500' :
+                                                goal.progress >= 50 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500' : 
+                                                'bg-gradient-to-r from-red-400 to-red-500'
+                                            }`}
+                                            style={{ width: `${goal.progress}%` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-between items-center">
+                                    <button className="text-primary-600 hover:text-primary-700 text-sm font-medium transition-colors">
+                                        Edit Goal
+                                    </button>
+                                    {goal.manager_approved ? (
+                                        <span className="flex items-center text-green-600 text-sm font-medium">
+                                            ✓ Approved
+                                        </span>
+                                    ) : (
+                                        <span className="text-yellow-600 text-sm">Pending Approval</span>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {goals.length === 0 && (
+                        <div className="glass-effect rounded-2xl p-12 text-center card-hover">
+                            <div className="text-6xl mb-4">🎯</div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Goals Yet</h3>
+                            <p className="text-gray-600 mb-6">Create your first goal to start tracking your progress</p>
+                            <button className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-all duration-200 shadow-lg">
+                                Create Goal
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const Reviews = () => (
+            <div className="max-w-6xl mx-auto py-8 px-4">
+                <div className="glass-effect rounded-2xl p-8 card-hover text-center">
+                    <div className="text-6xl mb-4">📝</div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Performance Reviews</h2>
+                    <p className="text-gray-600">360-degree feedback and performance evaluations</p>
+                    <div className="mt-6 p-4 bg-purple-50 rounded-lg">
+                        <p className="text-sm text-purple-800">Review functionality is available in the complete system</p>
+                    </div>
+                </div>
+            </div>
+        );
+
+        const Skills = () => (
+            <div className="max-w-6xl mx-auto py-8 px-4">
+                <div className="glass-effect rounded-2xl p-8 card-hover text-center">
+                    <div className="text-6xl mb-4">🎓</div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Skills Assessment</h2>
+                    <p className="text-gray-600">Track competencies and development areas</p>
+                    <div className="mt-6 p-4 bg-orange-50 rounded-lg">
+                        <p className="text-sm text-orange-800">Skills management functionality is available in the complete system</p>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // Main App Component
+        const App = () => {
+            const { isAuthenticated } = useAuth();
+            const [activeTab, setActiveTab] = useState('dashboard');
+
+            if (!isAuthenticated) {
+                return <Login />;
+            }
+
+            const renderContent = () => {
+                switch (activeTab) {
+                    case 'dashboard': return <Dashboard />;
+                    case 'profile': return <Profile />;
+                    case 'employees': return <Employees />;
+                    case 'goals': return <Goals />;
+                    case 'reviews': return <Reviews />;
+                    case 'skills': return <Skills />;
+                    case 'analytics': return <Analytics />;
+                    default: return <Dashboard />;
+                }
+            };
+
+            return (
+                <div className="min-h-screen">
+                    <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+                    <main className="animate-fade-in">
+                        {renderContent()}
+                    </main>
+                </div>
+            );
+        };
+
+        // Render the app
+        const AppWithProvider = () => (
+            <AuthProvider>
+                <App />
+            </AuthProvider>
+        );
+
+        ReactDOM.render(<AppWithProvider />, document.getElementById('root'));
+    </script>
+</body>
+</html>

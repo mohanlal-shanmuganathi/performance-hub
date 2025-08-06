@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Management System</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-white to-purple-50 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, createContext, useContext } = React;
+
+        // Auth Context
+        const AuthContext = createContext();
+        const useAuth = () => useContext(AuthContext);
+
+        const AuthProvider = ({ children }) => {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(false);
+
+            const login = async (credentials) => {
+                try {
+                    const response = await fetch('http://127.0.0.1:5000/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(credentials)
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        localStorage.setItem('token', data.access_token);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        setUser(data.user);
+                        return { success: true };
+                    }
+                    return { success: false, error: data.message };
+                } catch (error) {
+                    return { success: false, error: error.message };
+                }
+            };
+
+            const logout = () => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                setUser(null);
+            };
+
+            useEffect(() => {
+                const savedUser = localStorage.getItem('user');
+                if (savedUser) setUser(JSON.parse(savedUser));
+            }, []);
+
+            return React.createElement(AuthContext.Provider, { 
+                value: { user, login, logout, isAuthenticated: !!user, loading }
+            }, children);
+        };
+
+        // API Helper
+        const apiCall = async (endpoint, options = {}) => {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`http://127.0.0.1:5000/api${endpoint}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` }),
+                    ...options.headers
+                },
+                ...options
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'API request failed');
+            }
+            
+            return response.json();
+        };
+
+        // Navigation Component
+        const Navigation = ({ activeTab, setActiveTab }) => {
+            const { user, logout } = useAuth();
+            
+            const tabs = [
+                { id: 'dashboard', name: 'Dashboard', icon: '📊', roles: ['admin', 'manager', 'employee'] },
+                { id: 'employees', name: 'Team', icon: '👥', roles: ['admin', 'manager'] },
+                { id: 'goals', name: 'Goals', icon: '🎯', roles: ['admin', 'manager', 'employee'] },
+                { id: 'analytics', name: 'Analytics', icon: '📈', roles: ['admin', 'manager'] }
+            ];
+
+            return (
+                <nav className="glass-effect shadow-lg sticky top-0 z-50">
+                    <div className="max-w-7xl mx-auto px-4">
+                        <div className="flex justify-between h-16">
+                            <div className="flex items-center space-x-8">
+                                <div className="flex items-center space-x-2">
+                                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+                                        <span className="text-white font-bold text-sm">PM</span>
+                                    </div>
+                                    <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                                        Performance Hub
+                                    </h1>
+                                </div>
+                                <div className="flex space-x-1">
+                                    {tabs.filter(tab => tab.roles.includes(user.role)).map(tab => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => setActiveTab(tab.id)}
+                                            className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                                                activeTab === tab.id 
+                                                    ? 'bg-blue-500 text-white shadow-lg' 
+                                                    : 'text-gray-600 hover:text-blue-600 hover:bg-white/50'
+                                            }`}
+                                        >
+                                            <span>{tab.icon}</span>
+                                            <span>{tab.name}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full flex items-center justify-center">
+                                        <span className="text-white text-sm font-medium">
+                                            {user?.first_name?.[0]}{user?.last_name?.[0]}
+                                        </span>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm font-medium text-gray-900">
+                                            {user?.first_name} {user?.last_name}
+                                        </p>
+                                        <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={logout}
+                                    className="bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg"
+                                >
+                                    Logout
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+            );
+        };
+
+        // Login Component
+        const Login = () => {
+            const [email, setEmail] = useState('admin@company.com');
+            const [password, setPassword] = useState('admin123');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+            const { login } = useAuth();
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                const result = await login({ email, password });
+                setLoading(false);
+                if (!result.success) setError(result.error);
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center p-4">
+                    <div className="max-w-md w-full">
+                        <div className="glass-effect rounded-2xl p-8 shadow-2xl">
+                            <div className="text-center mb-8">
+                                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                    <span className="text-white text-2xl font-bold">PM</span>
+                                </div>
+                                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                                    Welcome Back
+                                </h2>
+                                <p className="text-gray-600 mt-2">Sign in to your performance dashboard</p>
+                            </div>
+                            
+                            <form onSubmit={handleSubmit} className="space-y-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                    <input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                        placeholder="Enter your email"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                        placeholder="Enter your password"
+                                        required
+                                    />
+                                </div>
+                                {error && (
+                                    <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+                                        {error}
+                                    </div>
+                                )}
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 px-4 rounded-lg hover:from-blue-600 hover:to-purple-600 transition-all duration-200 shadow-lg disabled:opacity-50"
+                                >
+                                    {loading ? 'Signing in...' : 'Sign In'}
+                                </button>
+                            </form>
+
+                            <div className="mt-8 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+                                <h3 className="text-sm font-medium text-gray-800 mb-3">Demo Credentials:</h3>
+                                <div className="space-y-2 text-xs">
+                                    <div><strong>Admin:</strong> admin@company.com / admin123</div>
+                                    <div><strong>Manager:</strong> manager@company.com / manager123</div>
+                                    <div><strong>Employee:</strong> employee@company.com / employee123</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Dashboard Component
+        const Dashboard = () => {
+            const { user } = useAuth();
+            const [analytics, setAnalytics] = useState(null);
+            const [goals, setGoals] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                fetchDashboardData();
+            }, []);
+
+            const fetchDashboardData = async () => {
+                try {
+                    const goalsData = await apiCall('/goals');
+                    setGoals(goalsData);
+
+                    if (user.role !== 'employee') {
+                        const analyticsData = await apiCall('/analytics/dashboard');
+                        setAnalytics(analyticsData);
+                    }
+                } catch (error) {
+                    console.error('Error fetching dashboard data:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (loading) {
+                return (
+                    <div className="flex items-center justify-center h-64">
+                        <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-7xl mx-auto py-8 px-4 space-y-8">
+                    <div className="text-center mb-8">
+                        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                            Welcome back, {user?.first_name}! 👋
+                        </h1>
+                        <p className="text-gray-600 text-lg">Here's your performance overview</p>
+                    </div>
+
+                    {analytics && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="glass-effect rounded-2xl p-6 card-hover">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Total Employees</p>
+                                        <p className="text-3xl font-bold text-gray-900 mt-2">{analytics.total_employees}</p>
+                                    </div>
+                                    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-2xl">👥</div>
+                                </div>
+                            </div>
+                            <div className="glass-effect rounded-2xl p-6 card-hover">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Active Goals</p>
+                                        <p className="text-3xl font-bold text-gray-900 mt-2">{analytics.total_goals}</p>
+                                    </div>
+                                    <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-2xl">🎯</div>
+                                </div>
+                            </div>
+                            <div className="glass-effect rounded-2xl p-6 card-hover">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Completion Rate</p>
+                                        <p className="text-3xl font-bold text-gray-900 mt-2">{analytics.goal_completion_rate}%</p>
+                                    </div>
+                                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-2xl">📈</div>
+                                </div>
+                            </div>
+                            <div className="glass-effect rounded-2xl p-6 card-hover">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Avg Rating</p>
+                                        <p className="text-3xl font-bold text-gray-900 mt-2">{analytics.average_ratings.overall}/5</p>
+                                    </div>
+                                    <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center text-2xl">⭐</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="glass-effect rounded-2xl p-6 card-hover">
+                        <h3 className="text-xl font-semibold text-gray-900 mb-6">Your Goals 🎯</h3>
+                        <div className="space-y-4">
+                            {goals.slice(0, 5).map(goal => (
+                                <div key={goal.id} className="bg-white/50 rounded-xl p-4 border border-white/20">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h4 className="font-medium text-gray-900">{goal.title}</h4>
+                                        <span className={`px-2 py-1 text-xs rounded-full ${
+                                            goal.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                            goal.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                                            'bg-gray-100 text-gray-800'
+                                        }`}>
+                                            {goal.status}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600 mb-3">{goal.category}</p>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex-1 mr-4">
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div
+                                                    className={`h-2 rounded-full transition-all duration-500 ${
+                                                        goal.progress >= 80 ? 'bg-green-500' :
+                                                        goal.progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                                                    }`}
+                                                    style={{ width: `${goal.progress}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                        <span className="text-sm font-medium text-gray-900">{goal.progress}%</span>
+                                    </div>
+                                </div>
+                            ))}
+                            {goals.length === 0 && (
+                                <div className="text-center py-8 text-gray-500">
+                                    <div className="text-4xl mb-2">🎯</div>
+                                    <p>No goals yet. Create your first goal!</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Employee Management Component with Full CRUD
+        const Employees = () => {
+            const { user } = useAuth();
+            const [employees, setEmployees] = useState([]);
+            const [showForm, setShowForm] = useState(false);
+            const [editingEmployee, setEditingEmployee] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [formData, setFormData] = useState({
+                email: '', password: '', first_name: '', last_name: '',
+                role: 'employee', department: '', position: '', manager_id: '', hire_date: ''
+            });
+
+            useEffect(() => {
+                fetchEmployees();
+            }, []);
+
+            const fetchEmployees = async () => {
+                try {
+                    const data = await apiCall('/employees');
+                    setEmployees(data);
+                } catch (error) {
+                    console.error('Error fetching employees:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                try {
+                    if (editingEmployee) {
+                        await apiCall(`/employees/${editingEmployee.id}`, {
+                            method: 'PUT',
+                            body: JSON.stringify(formData)
+                        });
+                    } else {
+                        await apiCall('/employees', {
+                            method: 'POST',
+                            body: JSON.stringify(formData)
+                        });
+                    }
+                    setShowForm(false);
+                    setEditingEmployee(null);
+                    setFormData({
+                        email: '', password: '', first_name: '', last_name: '',
+                        role: 'employee', department: '', position: '', manager_id: '', hire_date: ''
+                    });
+                    fetchEmployees();
+                } catch (error) {
+                    alert('Error saving employee: ' + error.message);
+                }
+            };
+
+            const handleEdit = (employee) => {
+                setEditingEmployee(employee);
+                setFormData({
+                    email: employee.email,
+                    first_name: employee.first_name,
+                    last_name: employee.last_name,
+                    role: employee.role,
+                    department: employee.department || '',
+                    position: employee.position || '',
+                    manager_id: employee.manager_id || '',
+                    hire_date: employee.hire_date || ''
+                });
+                setShowForm(true);
+            };
+
+            if (loading) {
+                return (
+                    <div className="flex items-center justify-center h-64">
+                        <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-6xl mx-auto py-8 px-4">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                            Team Management 👥
+                        </h2>
+                        {user.role === 'admin' && (
+                            <button
+                                onClick={() => setShowForm(true)}
+                                className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-3 rounded-lg hover:from-blue-600 hover:to-purple-600 transition-all duration-200 shadow-lg"
+                            >
+                                Add Employee
+                            </button>
+                        )}
+                    </div>
+
+                    {showForm && (
+                        <div className="glass-effect rounded-2xl p-6 mb-6 card-hover">
+                            <h3 className="text-lg font-semibold mb-4">
+                                {editingEmployee ? 'Edit Employee' : 'Add New Employee'}
+                            </h3>
+                            <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                    <input
+                                        type="email"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+                                {!editingEmployee && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                        <input
+                                            type="password"
+                                            value={formData.password}
+                                            onChange={(e) => setFormData({...formData, password: e.target.value})}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        />
+                                    </div>
+                                )}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                                    <input
+                                        type="text"
+                                        value={formData.first_name}
+                                        onChange={(e) => setFormData({...formData, first_name: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                                    <input
+                                        type="text"
+                                        value={formData.last_name}
+                                        onChange={(e) => setFormData({...formData, last_name: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                                    <select
+                                        value={formData.role}
+                                        onChange={(e) => setFormData({...formData, role: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="employee">Employee</option>
+                                        <option value="manager">Manager</option>
+                                        <option value="admin">Admin</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                                    <input
+                                        type="text"
+                                        value={formData.department}
+                                        onChange={(e) => setFormData({...formData, department: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <div className="col-span-2 flex justify-end space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowForm(false);
+                                            setEditingEmployee(null);
+                                        }}
+                                        className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-2 rounded-md hover:from-blue-600 hover:to-purple-600"
+                                    >
+                                        {editingEmployee ? 'Update' : 'Create'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    )}
+
+                    <div className="glass-effect rounded-2xl overflow-hidden card-hover">
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full">
+                                <thead className="bg-white/50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {employees.map(employee => (
+                                        <tr key={employee.id} className="hover:bg-white/30">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                {employee.first_name} {employee.last_name}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {employee.email}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
+                                                {employee.role}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {employee.department}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button
+                                                    onClick={() => handleEdit(employee)}
+                                                    className="text-blue-600 hover:text-blue-900 mr-3"
+                                                >
+                                                    Edit
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Goals Management Component with Full CRUD
+        const Goals = () => {
+            const { user } = useAuth();
+            const [goals, setGoals] = useState([]);
+            const [employees, setEmployees] = useState([]);
+            const [showForm, setShowForm] = useState(false);
+            const [editingGoal, setEditingGoal] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [formData, setFormData] = useState({
+                title: '', description: '', category: '', target_date: '', 
+                progress: 0, status: 'draft', employee_id: ''
+            });
+
+            useEffect(() => {
+                fetchGoals();
+                if (user.role === 'manager') {
+                    fetchEmployees();
+                }
+            }, []);
+
+            const fetchGoals = async () => {
+                try {
+                    const data = await apiCall('/goals');
+                    setGoals(data);
+                } catch (error) {
+                    console.error('Error fetching goals:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const fetchEmployees = async () => {
+                try {
+                    const data = await apiCall('/employees');
+                    setEmployees(data.filter(emp => emp.manager_id === user.id));
+                } catch (error) {
+                    console.error('Error fetching employees:', error);
+                }
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                try {
+                    const goalData = { ...formData };
+                    if (user.role !== 'manager') {
+                        delete goalData.employee_id;
+                    }
+                    
+                    if (editingGoal) {
+                        await apiCall(`/goals/${editingGoal.id}`, {
+                            method: 'PUT',
+                            body: JSON.stringify(goalData)
+                        });
+                    } else {
+                        await apiCall('/goals', {
+                            method: 'POST',
+                            body: JSON.stringify(goalData)
+                        });
+                    }
+                    setShowForm(false);
+                    setEditingGoal(null);
+                    setFormData({
+                        title: '', description: '', category: '', target_date: '', 
+                        progress: 0, status: 'draft', employee_id: ''
+                    });
+                    fetchGoals();
+                } catch (error) {
+                    alert('Error saving goal: ' + error.message);
+                }
+            };
+
+            const handleEdit = (goal) => {
+                setEditingGoal(goal);
+                setFormData({
+                    title: goal.title,
+                    description: goal.description || '',
+                    category: goal.category || '',
+                    target_date: goal.target_date || '',
+                    progress: goal.progress,
+                    status: goal.status,
+                    employee_id: goal.employee_id || ''
+                });
+                setShowForm(true);
+            };
+
+            if (loading) {
+                return (
+                    <div className="flex items-center justify-center h-64">
+                        <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-6xl mx-auto py-8 px-4">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                            Goals Management 🎯
+                        </h2>
+                        <button
+                            onClick={() => setShowForm(true)}
+                            className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-3 rounded-lg hover:from-blue-600 hover:to-purple-600 transition-all duration-200 shadow-lg"
+                        >
+                            {user.role === 'manager' ? 'Assign Goal' : 'Create Goal'}
+                        </button>
+                    </div>
+
+                    {showForm && (
+                        <div className="glass-effect rounded-2xl p-6 mb-6 card-hover">
+                            <h3 className="text-lg font-semibold mb-4">
+                                {editingGoal ? 'Edit Goal' : (user.role === 'manager' ? 'Assign Goal to Employee' : 'Create New Goal')}
+                            </h3>
+                            <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+                                {user.role === 'manager' && (
+                                    <div className="col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Assign to Employee</label>
+                                        <select
+                                            value={formData.employee_id}
+                                            onChange={(e) => setFormData({...formData, employee_id: e.target.value})}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        >
+                                            <option value="">Select Employee</option>
+                                            {employees.map(emp => (
+                                                <option key={emp.id} value={emp.id}>
+                                                    {emp.first_name} {emp.last_name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                                    <input
+                                        type="text"
+                                        value={formData.title}
+                                        onChange={(e) => setFormData({...formData, title: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                                    <select
+                                        value={formData.category}
+                                        onChange={(e) => setFormData({...formData, category: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="">Select Category</option>
+                                        <option value="Professional Development">Professional Development</option>
+                                        <option value="Leadership">Leadership</option>
+                                        <option value="Technical Skills">Technical Skills</option>
+                                        <option value="Performance">Performance</option>
+                                    </select>
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                    <textarea
+                                        value={formData.description}
+                                        onChange={(e) => setFormData({...formData, description: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                        rows="3"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Progress (%)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={formData.progress}
+                                        onChange={(e) => setFormData({...formData, progress: parseInt(e.target.value)})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                    <select
+                                        value={formData.status}
+                                        onChange={(e) => setFormData({...formData, status: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="draft">Draft</option>
+                                        <option value="active">Active</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="cancelled">Cancelled</option>
+                                    </select>
+                                </div>
+                                <div className="col-span-2 flex justify-end space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowForm(false);
+                                            setEditingGoal(null);
+                                        }}
+                                        className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-2 rounded-md hover:from-blue-600 hover:to-purple-600"
+                                    >
+                                        {editingGoal ? 'Update' : 'Create'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {goals.map(goal => (
+                            <div key={goal.id} className="glass-effect rounded-2xl p-6 card-hover">
+                                <div className="flex justify-between items-start mb-3">
+                                    <h3 className="text-lg font-semibold text-gray-900">{goal.title}</h3>
+                                    <span className={`px-2 py-1 text-xs rounded-full ${
+                                        goal.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                        goal.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                                        goal.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                        'bg-gray-100 text-gray-800'
+                                    }`}>
+                                        {goal.status}
+                                    </span>
+                                </div>
+                                
+                                {goal.description && (
+                                    <p className="text-gray-600 text-sm mb-3">{goal.description}</p>
+                                )}
+                                
+                                <div className="space-y-2 mb-4">
+                                    {goal.category && (
+                                        <p className="text-sm text-gray-500">
+                                            <span className="font-medium">Category:</span> {goal.category}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="mb-4">
+                                    <div className="flex justify-between text-sm text-gray-600 mb-1">
+                                        <span>Progress</span>
+                                        <span>{goal.progress}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div
+                                            className={`h-2 rounded-full ${
+                                                goal.progress >= 80 ? 'bg-green-500' :
+                                                goal.progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                                            }`}
+                                            style={{ width: `${goal.progress}%` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-between items-center">
+                                    <button
+                                        onClick={() => handleEdit(goal)}
+                                        className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                                    >
+                                        Edit
+                                    </button>
+                                    
+                                    {goal.manager_approved ? (
+                                        <span className="text-green-600 text-sm font-medium">✓ Approved</span>
+                                    ) : (
+                                        <span className="text-yellow-600 text-sm">Pending</span>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {goals.length === 0 && (
+                        <div className="glass-effect rounded-2xl p-12 text-center card-hover">
+                            <div className="text-6xl mb-4">🎯</div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Goals Yet</h3>
+                            <p className="text-gray-600">Create your first goal to start tracking progress</p>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Analytics Component
+        const Analytics = () => {
+            const [analytics, setAnalytics] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                fetchAnalytics();
+            }, []);
+
+            const fetchAnalytics = async () => {
+                try {
+                    const dashboardData = await apiCall('/analytics/dashboard');
+                    setAnalytics(dashboardData);
+                } catch (error) {
+                    console.error('Error fetching analytics:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (loading) {
+                return (
+                    <div className="flex items-center justify-center h-64">
+                        <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+                    </div>
+                );
+            }
+
+            if (!analytics) {
+                return (
+                    <div className="text-center py-12">
+                        <div className="text-4xl mb-4">📊</div>
+                        <p className="text-gray-500">Unable to load analytics data</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-7xl mx-auto py-8 px-4 space-y-8">
+                    <div className="text-center mb-8">
+                        <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                            Analytics Dashboard 📈
+                        </h2>
+                        <p className="text-gray-600 text-lg">Comprehensive performance insights</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="glass-effect rounded-2xl p-6 card-hover text-center">
+                            <div className="text-4xl mb-2">👥</div>
+                            <h3 className="text-sm font-medium text-gray-600">Total Employees</h3>
+                            <p className="text-3xl font-bold text-blue-600">{analytics.total_employees}</p>
+                        </div>
+                        <div className="glass-effect rounded-2xl p-6 card-hover text-center">
+                            <div className="text-4xl mb-2">🎯</div>
+                            <h3 className="text-sm font-medium text-gray-600">Goal Completion</h3>
+                            <p className="text-3xl font-bold text-green-600">{analytics.goal_completion_rate}%</p>
+                        </div>
+                        <div className="glass-effect rounded-2xl p-6 card-hover text-center">
+                            <div className="text-4xl mb-2">📝</div>
+                            <h3 className="text-sm font-medium text-gray-600">Review Completion</h3>
+                            <p className="text-3xl font-bold text-purple-600">{analytics.review_completion_rate}%</p>
+                        </div>
+                        <div className="glass-effect rounded-2xl p-6 card-hover text-center">
+                            <div className="text-4xl mb-2">⭐</div>
+                            <h3 className="text-sm font-medium text-gray-600">Average Rating</h3>
+                            <p className="text-3xl font-bold text-orange-600">{analytics.average_ratings.overall}/5</p>
+                        </div>
+                    </div>
+
+                    <div className="glass-effect rounded-2xl p-6 card-hover">
+                        <h3 className="text-xl font-semibold text-gray-900 mb-6">Department Overview 🏢</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {analytics.department_breakdown.map(dept => (
+                                <div key={dept.department} className="bg-white/50 rounded-xl p-4 text-center border border-white/20">
+                                    <div className="text-2xl font-bold text-blue-600">{dept.count}</div>
+                                    <div className="text-sm text-gray-600 mt-1">{dept.department}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App Component
+        const App = () => {
+            const { isAuthenticated } = useAuth();
+            const [activeTab, setActiveTab] = useState('dashboard');
+
+            if (!isAuthenticated) {
+                return <Login />;
+            }
+
+            const renderContent = () => {
+                switch (activeTab) {
+                    case 'dashboard': return <Dashboard />;
+                    case 'employees': return <Employees />;
+                    case 'goals': return <Goals />;
+                    case 'analytics': return <Analytics />;
+                    default: return <Dashboard />;
+                }
+            };
+
+            return (
+                <div className="min-h-screen">
+                    <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+                    <main>
+                        {renderContent()}
+                    </main>
+                </div>
+            );
+        };
+
+        // Render the app
+        const AppWithProvider = () => (
+            <AuthProvider>
+                <App />
+            </AuthProvider>
+        );
+
+        ReactDOM.render(<AppWithProvider />, document.getElementById('root'));
+    </script>
+</body>
+</html>

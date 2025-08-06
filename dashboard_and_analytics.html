@@ -1,0 +1,317 @@
+        // Dashboard Component
+        const Dashboard = () => {
+            const { user } = useAuth();
+            const [analytics, setAnalytics] = useState(null);
+            const [goals, setGoals] = useState([]);
+            const [reviews, setReviews] = useState([]);
+
+            useEffect(() => {
+                fetchDashboardData();
+            }, []);
+
+            const fetchDashboardData = async () => {
+                try {
+                    const [goalsData, reviewsData] = await Promise.all([
+                        apiCall('/goals'),
+                        apiCall('/reviews')
+                    ]);
+                    
+                    setGoals(goalsData);
+                    setReviews(reviewsData);
+
+                    if (user.role !== 'employee') {
+                        const analyticsData = await apiCall('/analytics/dashboard');
+                        setAnalytics(analyticsData);
+                    }
+                } catch (error) {
+                    console.error('Error fetching dashboard data:', error);
+                }
+            };
+
+            return (
+                <div className="max-w-7xl mx-auto py-6 px-4">
+                    <div className="mb-8">
+                        <h2 className="text-3xl font-bold text-gray-900">
+                            Welcome back, {user.first_name}!
+                        </h2>
+                        <p className="mt-2 text-gray-600">
+                            Here's an overview of your performance dashboard.
+                        </p>
+                    </div>
+
+                    {analytics && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                            <div className="bg-white p-6 rounded-lg shadow">
+                                <h3 className="text-sm font-medium text-gray-600">Total Employees</h3>
+                                <p className="text-2xl font-bold text-gray-900">{analytics.total_employees}</p>
+                            </div>
+                            <div className="bg-white p-6 rounded-lg shadow">
+                                <h3 className="text-sm font-medium text-gray-600">Active Goals</h3>
+                                <p className="text-2xl font-bold text-gray-900">{analytics.total_goals}</p>
+                            </div>
+                            <div className="bg-white p-6 rounded-lg shadow">
+                                <h3 className="text-sm font-medium text-gray-600">Goal Completion</h3>
+                                <p className="text-2xl font-bold text-gray-900">{analytics.goal_completion_rate}%</p>
+                            </div>
+                            <div className="bg-white p-6 rounded-lg shadow">
+                                <h3 className="text-sm font-medium text-gray-600">Avg Rating</h3>
+                                <p className="text-2xl font-bold text-gray-900">{analytics.average_ratings.overall}/5</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Goals</h3>
+                            {goals.slice(0, 5).map(goal => (
+                                <div key={goal.id} className="border-l-4 border-blue-500 bg-gray-50 p-3 mb-3">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h4 className="font-medium text-gray-900">{goal.title}</h4>
+                                            <p className="text-sm text-gray-600">{goal.category}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-lg font-bold text-gray-900">{goal.progress}%</div>
+                                            <div className="w-16 bg-gray-200 rounded-full h-2 mt-1">
+                                                <div
+                                                    className="bg-blue-600 h-2 rounded-full"
+                                                    style={{ width: `${goal.progress}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                            {goals.length === 0 && (
+                                <p className="text-gray-500 text-center py-4">No goals found</p>
+                            )}
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Reviews</h3>
+                            {reviews.slice(0, 5).map(review => (
+                                <div key={review.id} className="flex justify-between items-center p-3 bg-gray-50 rounded mb-3">
+                                    <div>
+                                        <p className="font-medium text-gray-900">
+                                            {user.role === 'employee' ? review.reviewer_name : review.reviewee_name}
+                                        </p>
+                                        <p className="text-sm text-gray-600">
+                                            {review.review_type} review • {review.review_period}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-semibold text-gray-900">
+                                            {review.overall_rating ? `${review.overall_rating}/5` : 'Pending'}
+                                        </p>
+                                        <p className={`text-xs px-2 py-1 rounded-full ${
+                                            review.status === 'completed' 
+                                                ? 'bg-green-100 text-green-800' 
+                                                : 'bg-yellow-100 text-yellow-800'
+                                        }`}>
+                                            {review.status}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                            {reviews.length === 0 && (
+                                <p className="text-gray-500 text-center py-4">No reviews found</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Analytics Component
+        const Analytics = () => {
+            const [analytics, setAnalytics] = useState(null);
+            const [trends, setTrends] = useState([]);
+            const [teamComparison, setTeamComparison] = useState([]);
+            const [skillsGap, setSkillsGap] = useState([]);
+
+            useEffect(() => {
+                fetchAnalytics();
+            }, []);
+
+            const fetchAnalytics = async () => {
+                try {
+                    const [dashboardData, trendsData, teamData, skillsData] = await Promise.all([
+                        apiCall('/analytics/dashboard'),
+                        apiCall('/analytics/performance-trends'),
+                        apiCall('/analytics/team-comparison'),
+                        apiCall('/analytics/skills-gap')
+                    ]);
+                    
+                    setAnalytics(dashboardData);
+                    setTrends(trendsData.trends || []);
+                    setTeamComparison(teamData.team_data || []);
+                    setSkillsGap(skillsData.skills_gaps || []);
+                } catch (error) {
+                    console.error('Error fetching analytics:', error);
+                }
+            };
+
+            if (!analytics) return <div>Loading...</div>;
+
+            return (
+                <div className="max-w-7xl mx-auto py-6 px-4">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Analytics Dashboard</h2>
+                    
+                    {/* Key Metrics */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div className="bg-white p-6 rounded-lg shadow">
+                            <h3 className="text-sm font-medium text-gray-600">Total Employees</h3>
+                            <p className="text-3xl font-bold text-blue-600">{analytics.total_employees}</p>
+                        </div>
+                        <div className="bg-white p-6 rounded-lg shadow">
+                            <h3 className="text-sm font-medium text-gray-600">Goal Completion Rate</h3>
+                            <p className="text-3xl font-bold text-green-600">{analytics.goal_completion_rate}%</p>
+                        </div>
+                        <div className="bg-white p-6 rounded-lg shadow">
+                            <h3 className="text-sm font-medium text-gray-600">Review Completion Rate</h3>
+                            <p className="text-3xl font-bold text-purple-600">{analytics.review_completion_rate}%</p>
+                        </div>
+                        <div className="bg-white p-6 rounded-lg shadow">
+                            <h3 className="text-sm font-medium text-gray-600">Average Rating</h3>
+                            <p className="text-3xl font-bold text-orange-600">{analytics.average_ratings.overall}/5</p>
+                        </div>
+                    </div>
+
+                    {/* Performance Ratings Breakdown */}
+                    <div className="bg-white rounded-lg shadow p-6 mb-8">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Average Performance Ratings</h3>
+                        <div className="grid grid-cols-5 gap-4">
+                            {Object.entries(analytics.average_ratings).map(([key, value]) => (
+                                <div key={key} className="text-center">
+                                    <div className="text-2xl font-bold text-blue-600">{value}</div>
+                                    <div className="text-sm text-gray-600 capitalize">{key.replace('_', ' ')}</div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                        <div
+                                            className="bg-blue-600 h-2 rounded-full"
+                                            style={{ width: `${(value / 5) * 100}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Department Breakdown */}
+                    <div className="bg-white rounded-lg shadow p-6 mb-8">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Department Breakdown</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {analytics.department_breakdown.map(dept => (
+                                <div key={dept.department} className="text-center p-4 bg-gray-50 rounded">
+                                    <div className="text-xl font-bold text-gray-900">{dept.count}</div>
+                                    <div className="text-sm text-gray-600">{dept.department}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Team Comparison */}
+                    {teamComparison.length > 0 && (
+                        <div className="bg-white rounded-lg shadow p-6 mb-8">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Performance Comparison</h3>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                {teamComparison[0].employee_name ? 'Employee' : 'Department'}
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rating</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Goal Completion</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Goals</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {teamComparison.map((item, index) => (
+                                            <tr key={index}>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                    {item.employee_name || item.department}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {item.overall_rating || item.average_rating || 'N/A'}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {item.goal_completion_rate}%
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {item.total_goals || item.employee_count}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Skills Gap Analysis */}
+                    {skillsGap.length > 0 && (
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Skills Gap Analysis</h3>
+                            <div className="space-y-4">
+                                {skillsGap.slice(0, 10).map((skill, index) => (
+                                    <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded">
+                                        <div>
+                                            <h4 className="font-medium text-gray-900">{skill.skill_name}</h4>
+                                            <p className="text-sm text-gray-600">{skill.category}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-lg font-bold text-red-600">Gap: {skill.gap_size}</div>
+                                            <div className="text-sm text-gray-600">{skill.employees_affected} employees</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Main App Component
+        const App = () => {
+            const { isAuthenticated } = useAuth();
+            const [activeTab, setActiveTab] = useState('dashboard');
+
+            if (!isAuthenticated) {
+                return <Login />;
+            }
+
+            const renderContent = () => {
+                switch (activeTab) {
+                    case 'dashboard': return <Dashboard />;
+                    case 'profile': return <Profile />;
+                    case 'employees': return <Employees />;
+                    case 'goals': return <Goals />;
+                    case 'reviews': return <Reviews />;
+                    case 'skills': return <Skills />;
+                    case 'analytics': return <Analytics />;
+                    default: return <Dashboard />;
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+                    <main>
+                        {renderContent()}
+                    </main>
+                </div>
+            );
+        };
+
+        // Render the app
+        const AppWithProvider = () => (
+            <AuthProvider>
+                <App />
+            </AuthProvider>
+        );
+
+        ReactDOM.render(<AppWithProvider />, document.getElementById('root'));
+    </script>
+</body>
+</html>

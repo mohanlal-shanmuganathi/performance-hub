@@ -1,0 +1,97 @@
+graph TB
+    %% Frontend Layer
+    subgraph "Frontend (React)"
+        UI[React App :3000]
+        COMP[Components]
+        PAGES[Pages]
+        HOOKS[Custom Hooks]
+        SERVICES[API Services]
+        UTILS_FE[Utils]
+    end
+
+    %% Backend Layer
+    subgraph "Backend (Flask)"
+        API[Flask API :5000]
+        
+        subgraph "API Structure"
+            BP[Blueprints]
+            MODELS[SQLAlchemy Models]
+            SCHEMAS[Marshmallow Schemas]
+            BL[Business Logic Services]
+            UTILS_BE[Utils & Helpers]
+        end
+        
+        subgraph "API Endpoints"
+            AUTH[/auth - Authentication]
+            EMP[/employees - Employee Mgmt]
+            GOALS[/goals - Goal Setting]
+            REV[/reviews - 360° Reviews]
+            SKILLS[/skills - Skill Assessment]
+            ANALYTICS[/analytics - Dashboards]
+        end
+    end
+
+    %% Database Layer
+    subgraph "Database"
+        DB[(PostgreSQL)]
+        MIGRATIONS[Alembic Migrations]
+    end
+
+    %% Infrastructure
+    subgraph "Infrastructure"
+        DOCKER[Docker Compose]
+        AWS[AWS ECS/EC2]
+    end
+
+    %% User Roles
+    subgraph "Users"
+        ADMIN[Admin User]
+        MANAGER[Manager User]
+        EMPLOYEE[Employee User]
+    end
+
+    %% Connections
+    ADMIN --> UI
+    MANAGER --> UI
+    EMPLOYEE --> UI
+    
+    UI --> COMP
+    UI --> PAGES
+    UI --> HOOKS
+    UI --> SERVICES
+    UI --> UTILS_FE
+    
+    SERVICES --> API
+    
+    API --> BP
+    API --> MODELS
+    API --> SCHEMAS
+    API --> BL
+    API --> UTILS_BE
+    
+    BP --> AUTH
+    BP --> EMP
+    BP --> GOALS
+    BP --> REV
+    BP --> SKILLS
+    BP --> ANALYTICS
+    
+    MODELS --> DB
+    MIGRATIONS --> DB
+    
+    DOCKER --> API
+    DOCKER --> DB
+    AWS --> DOCKER
+
+    %% Styling
+    classDef frontend fill:#61dafb,stroke:#333,stroke-width:2px
+    classDef backend fill:#3776ab,stroke:#333,stroke-width:2px
+    classDef database fill:#336791,stroke:#333,stroke-width:2px
+    classDef users fill:#28a745,stroke:#333,stroke-width:2px
+    classDef infra fill:#ff9900,stroke:#333,stroke-width:2px
+    
+    class UI,COMP,PAGES,HOOKS,SERVICES,UTILS_FE frontend
+    class API,BP,MODELS,SCHEMAS,BL,UTILS_BE,AUTH,EMP,GOALS,REV,SKILLS,ANALYTICS backend
+    class DB,MIGRATIONS database
+    class ADMIN,MANAGER,EMPLOYEE users
+    class DOCKER,AWS infra

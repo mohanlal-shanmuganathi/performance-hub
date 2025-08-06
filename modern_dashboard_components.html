@@ -1,0 +1,374 @@
+        // Modern Dashboard Component
+        const Dashboard = () => {
+            const { user } = useAuth();
+            const [analytics, setAnalytics] = useState(null);
+            const [goals, setGoals] = useState([]);
+            const [reviews, setReviews] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                fetchDashboardData();
+            }, []);
+
+            const fetchDashboardData = async () => {
+                try {
+                    const [goalsData, reviewsData] = await Promise.all([
+                        apiCall('/goals'),
+                        apiCall('/reviews')
+                    ]);
+                    
+                    setGoals(goalsData);
+                    setReviews(reviewsData);
+
+                    if (user.role !== 'employee') {
+                        const analyticsData = await apiCall('/analytics/dashboard');
+                        setAnalytics(analyticsData);
+                    }
+                } catch (error) {
+                    console.error('Error fetching dashboard data:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (loading) {
+                return (
+                    <div className="flex items-center justify-center h-64">
+                        <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin"></div>
+                    </div>
+                );
+            }
+
+            const StatCard = ({ title, value, icon, color, trend }) => (
+                <div className="glass-effect rounded-2xl p-6 card-hover animate-slide-up">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-gray-600">{title}</p>
+                            <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
+                            {trend && (
+                                <p className="text-sm text-green-600 mt-1">
+                                    ↗ {trend}% from last month
+                                </p>
+                            )}
+                        </div>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${color}`}>
+                            {icon}
+                        </div>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="max-w-7xl mx-auto py-8 px-4 space-y-8">
+                    {/* Welcome Section */}
+                    <div className="text-center mb-8">
+                        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent mb-2">
+                            Welcome back, {user?.first_name}! 👋
+                        </h1>
+                        <p className="text-gray-600 text-lg">
+                            Here's your performance overview for today
+                        </p>
+                    </div>
+
+                    {/* Stats Cards */}
+                    {analytics && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <StatCard
+                                title="Total Team Members"
+                                value={analytics.total_employees}
+                                icon="👥"
+                                color="bg-blue-100"
+                                trend="12"
+                            />
+                            <StatCard
+                                title="Active Goals"
+                                value={analytics.total_goals}
+                                icon="🎯"
+                                color="bg-green-100"
+                                trend="8"
+                            />
+                            <StatCard
+                                title="Completion Rate"
+                                value={`${analytics.goal_completion_rate}%`}
+                                icon="📈"
+                                color="bg-purple-100"
+                                trend="15"
+                            />
+                            <StatCard
+                                title="Avg Performance"
+                                value={`${analytics.average_ratings.overall}/5`}
+                                icon="⭐"
+                                color="bg-yellow-100"
+                                trend="5"
+                            />
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Goals Overview */}
+                        <div className="glass-effect rounded-2xl p-6 card-hover">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-xl font-semibold text-gray-900">Recent Goals 🎯</h3>
+                                <span className="text-sm text-gray-500">{goals.length} total</span>
+                            </div>
+                            <div className="space-y-4">
+                                {goals.slice(0, 5).map(goal => (
+                                    <div key={goal.id} className="bg-white/50 rounded-xl p-4 border border-white/20">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h4 className="font-medium text-gray-900">{goal.title}</h4>
+                                            <span className={`px-2 py-1 text-xs rounded-full ${
+                                                goal.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                goal.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                                                'bg-gray-100 text-gray-800'
+                                            }`}>
+                                                {goal.status}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-gray-600 mb-3">{goal.category}</p>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex-1 mr-4">
+                                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                                    <div
+                                                        className={`h-2 rounded-full transition-all duration-500 ${
+                                                            goal.progress >= 80 ? 'bg-green-500' :
+                                                            goal.progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                                                        }`}
+                                                        style={{ width: `${goal.progress}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-900">{goal.progress}%</span>
+                                        </div>
+                                    </div>
+                                ))}
+                                {goals.length === 0 && (
+                                    <div className="text-center py-8 text-gray-500">
+                                        <div className="text-4xl mb-2">🎯</div>
+                                        <p>No goals yet. Create your first goal!</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Reviews Overview */}
+                        <div className="glass-effect rounded-2xl p-6 card-hover">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-xl font-semibold text-gray-900">Recent Reviews 📝</h3>
+                                <span className="text-sm text-gray-500">{reviews.length} total</span>
+                            </div>
+                            <div className="space-y-4">
+                                {reviews.slice(0, 5).map(review => (
+                                    <div key={review.id} className="bg-white/50 rounded-xl p-4 border border-white/20">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <p className="font-medium text-gray-900">
+                                                    {user.role === 'employee' ? review.reviewer_name : review.reviewee_name}
+                                                </p>
+                                                <p className="text-sm text-gray-600">
+                                                    {review.review_type} review • {review.review_period}
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="flex items-center space-x-1">
+                                                    {[1,2,3,4,5].map(star => (
+                                                        <span key={star} className={`text-sm ${
+                                                            star <= (review.overall_rating || 0) ? 'text-yellow-400' : 'text-gray-300'
+                                                        }`}>
+                                                            ⭐
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                                <span className={`text-xs px-2 py-1 rounded-full mt-1 inline-block ${
+                                                    review.status === 'completed' 
+                                                        ? 'bg-green-100 text-green-800' 
+                                                        : 'bg-yellow-100 text-yellow-800'
+                                                }`}>
+                                                    {review.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {reviews.length === 0 && (
+                                    <div className="text-center py-8 text-gray-500">
+                                        <div className="text-4xl mb-2">📝</div>
+                                        <p>No reviews yet. Start your first review!</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Performance Chart for Admins/Managers */}
+                    {analytics && (
+                        <div className="glass-effect rounded-2xl p-6 card-hover">
+                            <h3 className="text-xl font-semibold text-gray-900 mb-6">Performance Metrics 📊</h3>
+                            <div className="grid grid-cols-5 gap-4">
+                                {Object.entries(analytics.average_ratings).map(([key, value]) => (
+                                    <div key={key} className="text-center">
+                                        <div className="w-16 h-16 mx-auto mb-2 relative">
+                                            <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 36 36">
+                                                <path
+                                                    className="text-gray-200"
+                                                    stroke="currentColor"
+                                                    strokeWidth="3"
+                                                    fill="none"
+                                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                                />
+                                                <path
+                                                    className="text-primary-500"
+                                                    stroke="currentColor"
+                                                    strokeWidth="3"
+                                                    strokeDasharray={`${(value / 5) * 100}, 100`}
+                                                    strokeLinecap="round"
+                                                    fill="none"
+                                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                                />
+                                            </svg>
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <span className="text-sm font-bold text-gray-900">{value}</span>
+                                            </div>
+                                        </div>
+                                        <p className="text-sm font-medium text-gray-700 capitalize">
+                                            {key.replace('_', ' ')}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Modern Analytics Component
+        const Analytics = () => {
+            const [analytics, setAnalytics] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                fetchAnalytics();
+            }, []);
+
+            const fetchAnalytics = async () => {
+                try {
+                    const [dashboardData, trendsData, teamData, skillsData] = await Promise.all([
+                        apiCall('/analytics/dashboard'),
+                        apiCall('/analytics/performance-trends'),
+                        apiCall('/analytics/team-comparison'),
+                        apiCall('/analytics/skills-gap')
+                    ]);
+                    
+                    setAnalytics({
+                        dashboard: dashboardData,
+                        trends: trendsData.trends || [],
+                        team: teamData.team_data || [],
+                        skills: skillsData.skills_gaps || []
+                    });
+                } catch (error) {
+                    console.error('Error fetching analytics:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (loading) {
+                return (
+                    <div className="flex items-center justify-center h-64">
+                        <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin"></div>
+                    </div>
+                );
+            }
+
+            if (!analytics) {
+                return (
+                    <div className="text-center py-12">
+                        <div className="text-4xl mb-4">📊</div>
+                        <p className="text-gray-500">Unable to load analytics data</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-7xl mx-auto py-8 px-4 space-y-8">
+                    <div className="text-center mb-8">
+                        <h2 className="text-4xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent mb-2">
+                            Analytics Dashboard 📈
+                        </h2>
+                        <p className="text-gray-600 text-lg">Comprehensive performance insights and trends</p>
+                    </div>
+                    
+                    {/* Key Metrics */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="glass-effect rounded-2xl p-6 card-hover text-center">
+                            <div className="text-4xl mb-2">👥</div>
+                            <h3 className="text-sm font-medium text-gray-600">Total Employees</h3>
+                            <p className="text-3xl font-bold text-primary-600">{analytics.dashboard.total_employees}</p>
+                        </div>
+                        <div className="glass-effect rounded-2xl p-6 card-hover text-center">
+                            <div className="text-4xl mb-2">🎯</div>
+                            <h3 className="text-sm font-medium text-gray-600">Goal Completion</h3>
+                            <p className="text-3xl font-bold text-green-600">{analytics.dashboard.goal_completion_rate}%</p>
+                        </div>
+                        <div className="glass-effect rounded-2xl p-6 card-hover text-center">
+                            <div className="text-4xl mb-2">📝</div>
+                            <h3 className="text-sm font-medium text-gray-600">Review Completion</h3>
+                            <p className="text-3xl font-bold text-purple-600">{analytics.dashboard.review_completion_rate}%</p>
+                        </div>
+                        <div className="glass-effect rounded-2xl p-6 card-hover text-center">
+                            <div className="text-4xl mb-2">⭐</div>
+                            <h3 className="text-sm font-medium text-gray-600">Average Rating</h3>
+                            <p className="text-3xl font-bold text-orange-600">{analytics.dashboard.average_ratings.overall}/5</p>
+                        </div>
+                    </div>
+
+                    {/* Department Breakdown */}
+                    <div className="glass-effect rounded-2xl p-6 card-hover">
+                        <h3 className="text-xl font-semibold text-gray-900 mb-6">Department Overview 🏢</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {analytics.dashboard.department_breakdown.map(dept => (
+                                <div key={dept.department} className="bg-white/50 rounded-xl p-4 text-center border border-white/20">
+                                    <div className="text-2xl font-bold text-primary-600">{dept.count}</div>
+                                    <div className="text-sm text-gray-600 mt-1">{dept.department}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Skills Gap Analysis */}
+                    {analytics.skills.length > 0 && (
+                        <div className="glass-effect rounded-2xl p-6 card-hover">
+                            <h3 className="text-xl font-semibold text-gray-900 mb-6">Skills Gap Analysis 🎓</h3>
+                            <div className="space-y-4">
+                                {analytics.skills.slice(0, 10).map((skill, index) => (
+                                    <div key={index} className="bg-white/50 rounded-xl p-4 border border-white/20">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h4 className="font-medium text-gray-900">{skill.skill_name}</h4>
+                                                <p className="text-sm text-gray-600">{skill.category}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-lg font-bold text-red-600">Gap: {skill.gap_size}</div>
+                                                <div className="text-sm text-gray-600">{skill.employees_affected} employees affected</div>
+                                            </div>
+                                        </div>
+                                        <div className="mt-3">
+                                            <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                                <span>Current: {skill.average_current_level}</span>
+                                                <span>Target: {skill.average_target_level}</span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div
+                                                    className="bg-red-500 h-2 rounded-full"
+                                                    style={{ width: `${(skill.average_current_level / skill.average_target_level) * 100}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
