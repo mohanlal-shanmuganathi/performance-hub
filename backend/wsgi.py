@@ -2,7 +2,7 @@ import sys
 import os
 
 # Add your project directory to the sys.path
-sys.path.insert(0, '/home/yourusername/mysite')
+sys.path.insert(0, '/home/mohanlal/mysite')
 
 from app import create_app
 
