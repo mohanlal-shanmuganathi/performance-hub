@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Head from 'next/head';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://mohanlal.pythonanywhere.com/api';
 
@@ -83,16 +84,20 @@ export default function Home() {
   if (currentView === 'login') {
     return (
       <>
-        <head>
+        <Head>
           <title>Performance Management - Login</title>
-        </head>
+        </Head>
         <LoginForm onLogin={login} />
       </>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+    <>
+      <Head>
+        <title>Performance Management System</title>
+      </Head>
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
       <nav style={{ background: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', padding: '1rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#333' }}>Performance Management</h1>
@@ -108,7 +113,8 @@ export default function Home() {
         {currentView === 'dashboard' && <Dashboard user={user} />}
         {currentView === 'goals' && <Goals goals={goals} onLoad={loadGoals} onCreate={createGoal} />}
       </main>
-    </div>
+      </div>
+    </>
   );
 }
 
