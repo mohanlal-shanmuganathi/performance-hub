@@ -81,7 +81,14 @@ export default function Home() {
   };
 
   if (currentView === 'login') {
-    return <LoginForm onLogin={login} />;
+    return (
+      <>
+        <head>
+          <title>Performance Management - Login</title>
+        </head>
+        <LoginForm onLogin={login} />
+      </>
+    );
   }
 
   return (
